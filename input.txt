@@ -1,0 +1,19 @@
+purno baksho shuru() {
+    purno x = 10;
+    purno y = 20;
+    dosomik z = 5.5;
+    sobdo str = "Hello World";
+    
+    dekhao x jog y;
+    
+    hoyKi (x boro y) {
+        dekhao x gun y;
+    } nahole {
+        dekhao x vaag y;
+    }
+    
+    jotokkhon (x choto 50) {
+        dekhao x;
+        x barao;
+    }
+}
