@@ -6,10 +6,10 @@ int line_num = 1;
 %}
 
 %%
-[ \t]+                      /* Skip whitespace */
+[ \t\r]+                    /* Skip whitespace */
 [\n]                        { line_num++; }
 
-"//".*                      /* Skip single-line comments */
+"//"[^\n]*                  /* Skip single-line comments */
 "/*"([^*]|\*+[^*/])*\*+"/" /* Skip multi-line comments */
 
 "shuru"                     { return MAIN; }
@@ -33,10 +33,10 @@ int line_num = 1;
 "choto"                     { return LESS; }
 "boroSoman"                 { return GREATER_EQUAL; }
 "chotoSoman"                { return LESS_EQUAL; }
-"jog"                       { return PLUS; }
-"biyog"                     { return MINUS; }
-"gun"                       { return MULTIPLY; }
-"vaag"                      { return DIVIDE; }
+"jog"                       { return JOG; }
+"biyog"                     { return BIYOG; }
+"gun"                       { return GUN; }
+"vaag"                      { return VAAG; }
 "vagsesh"                   { return MODULO; }
 "pow"                       { return POWER; }
 "ebong"                     { return LOGICAL_AND; }
@@ -60,11 +60,11 @@ int line_num = 1;
 "sotti"                     { return BOOL_TRUE; }
 "mithya"                    { return BOOL_FALSE; }
 
-[0-9]+                      { yylval.number = atoi(yytext); return NUMBER; }
-[0-9]+"."[0-9]+            { yylval.decimal = atof(yytext); return DECIMAL; }
-[a-zA-Z_][a-zA-Z0-9_]*     { yylval.string = strdup(yytext); return IDENTIFIER; }
-\"([^\"\\]|\\.)*\"         { yylval.string = strdup(yytext); return STRING_LITERAL; }
-\'([^\'\\]|\\.)*\'         { yylval.string = strdup(yytext); return CHAR_LITERAL; }
+[0-9]+                      { yylval.value = atoi(yytext); return NUMBER; }
+[0-9]+"."[0-9]+            { yylval.decimal_value = atof(yytext); return DECIMAL; }
+[a-zA-Z_][a-zA-Z0-9_]*     { yylval.string_value = strdup(yytext); return IDENTIFIER; }
+\"([^\"\\]|\\.)*\"         { yylval.string_value = strdup(yytext); return STRING_LITERAL; }
+\'([^\'\\]|\\.)*\'         { yylval.string_value = strdup(yytext); return CHAR_LITERAL; }
 
 "("                         { return LEFT_PAREN; }
 ")"                         { return RIGHT_PAREN; }
@@ -74,8 +74,9 @@ int line_num = 1;
 "]"                         { return RIGHT_BRACKET; }
 ","                         { return COMMA; }
 ";"                         { return SEMICOLON; }
+":"                         { return COLON; }
 
-.                           { fprintf(stderr, "Line %d: Lexical error - unexpected character: %s\n", line_num, yytext); }
+.                           { /* Ignore any other character */ }
 
 %%
 
