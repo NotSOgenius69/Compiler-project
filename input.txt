@@ -1,29 +1,103 @@
 // Function definition
-purno baksho jogKoro(purno a, purno b) {
-    ferot a jog b;
+purno baksho amarBiyog(purno a, purno b) {
+    
+    hoyKi (a boro b) {
+        ferot a biyog b;
+    }
+    nahoyKi (a chotoSoman b) {
+        ferot b biyog a;
+    }
+    
 }
 
 purno baksho shuru() {
+    // Variable declarations
     dhoren purno x;
     x = 10;
     dhoren purno y;
-    y = 20;
+    y = 230;
     dhoren dosomik z;
     z = 5.5;
     dhoren sobdo str;
     str = "Hello World";
     
+    // Basic arithmetic operations
     dekhao "Basic Arithmetic:";
     dekhao x jog y;
     dekhao x biyog y;
     dekhao x gun y;
     dekhao x vaag y;
-    
-    dekhao "Decimal value:";
+
     dekhao z;
-    
-    dekhao "String value:";
     dekhao str;
+    
+    // Function call
+    dekhao "Function e jacchi";
+    dhoren purno result;
+    result = amarBiyog(x, y);
+    dekhao "Function result:";
+    dekhao result;
+    
+    // For loop example
+    dekhao "For loop counting 1 to 5:";
+    dhoren purno i;
+    ChalayDen (i = 1; i chotoSoman 5; i barao) {
+        dekhao i;
+    }
+    
+    // While loop example
+    dekhao "While loop counting down from 5:";
+    dhoren purno count;
+    count = 5;
+    jotokkhon (count boro 0) {
+        dekhao count;
+        count komao;
+    }
+
+    // Switch case example
+    dekhao "Testing switch case:";
+    dhoren purno choice;
+    choice = 2;
+    
+    kono(choice) {
+        khetre 1:
+            dekhao "One selected";
+            thaman;
+        khetre 2:
+            dekhao "Two selected";
+            thaman;
+        khetre 3:
+            dekhao "Three selected";
+            thaman;
+       
+    }
+    
+    // Logical operators
+    dekhao "Testing logical operators:";
+    hoyKi (x boro 5 ebong y boro 30) {
+        dekhao "Condition with AND operator is true";
+    }
+    
+    hoyKi (x boro 20 othoba y choto 30) {
+        dekhao "Condition with OR operator is true";
+    }
+    
+    //If-else ladder
+    dekhao "Testing if-else ladder:";
+    dhoren purno num;
+    num = 56;
+    
+    hoyKi (num boro 50) {
+        dekhao "Number is greater than 50";
+    }
+    nahoyKi (num boro 25 ebong num choto 50) {
+        dekhao "Number is between 26 and 50";
+    }
+    nahole {
+        dekhao "Number is less than or equal to 25";
+    }
+    
+    
     
     ferot 0;
 }

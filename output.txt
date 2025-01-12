@@ -1,9 +1,33 @@
 Basic Arithmetic:
-30
--10
-200
+240
+-220
+2300
 0
-Decimal value:
 5.50
-String value:
-"Hello World"
+Hello World
+Function e jacchi
+Function result:
+220
+For loop counting 1 to 5:
+1
+2
+3
+4
+5
+6
+While loop counting down from 5:
+5
+4
+3
+2
+1
+0
+Testing switch case:
+One selected
+Two selected
+Testing logical operators:
+Condition with AND operator is true
+Testing if-else ladder:
+Number is greater than 50
+Number is between 26 and 50
+Number is less than or equal to 25

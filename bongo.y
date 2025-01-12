@@ -65,6 +65,15 @@ void set_string_symbol(char *name, char *value, char *type) {
     symbols[sym_count].type = strdup(type);
     sym_count++;
 }
+
+int switch_value = 0;
+int case_matched = 0;
+int current_case_matches = 0;
+int if_condition_met = 0;
+int in_conditional = 0;
+int in_loop = 0;
+int should_break = 0;
+int previous_condition_met = 0;
 %}
 
 %union {
@@ -97,9 +106,11 @@ void set_string_symbol(char *name, char *value, char *type) {
 
 %type <expr> expression function_call
 %type <string_value> type
+%type <expr> increment_statement
 
 %nonassoc LOWER_THAN_ELSE
-%nonassoc ELSE ELSE_IF
+%nonassoc ELSE
+%nonassoc ELSE_IF
 %left LOGICAL_OR
 %left LOGICAL_AND
 %left BITWISE_OR
@@ -173,14 +184,26 @@ declaration:
     DECLARE type IDENTIFIER {
         if(strcmp($2, "dosomik") == 0)
             set_decimal_symbol($3, 0.0, $2);
+        else if(strcmp($2, "sobdo") == 0)
+            set_string_symbol($3, "", $2);
         else
             set_symbol($3, 0, $2);
     }
     | DECLARE type IDENTIFIER ASSIGN expression {
         if(strcmp($2, "dosomik") == 0)
             set_decimal_symbol($3, $5.decimal_value, $2);
+        else if(strcmp($2, "sobdo") == 0)
+            set_string_symbol($3, $5.string_value, $2);
         else
             set_symbol($3, $5.value, $2);
+    }
+    | DECLARE type IDENTIFIER ASSIGN STRING_LITERAL {
+        if(strcmp($2, "sobdo") == 0) {
+            char *str = strdup($5);
+            str[strlen(str)-1] = '\0';
+            set_string_symbol($3, str+1, $2);
+            free(str);
+        }
     }
     ;
 
@@ -193,37 +216,44 @@ expression_statement:
         else
             set_symbol($1, $3.value, "purno");
     }
-    | IDENTIFIER ASSIGN DECIMAL {
-        set_decimal_symbol($1, $3, "dosomik");
-    }
     | IDENTIFIER ASSIGN STRING_LITERAL {
-        set_string_symbol($1, $3, "sobdo");
+        char *str = strdup($3);
+        str[strlen(str)-1] = '\0';
+        set_string_symbol($1, str+1, "sobdo");
+        free(str);
     }
+    | increment_statement
     ;
 
 print_statement:
     PRINT expression {
-        if(strcmp($2.type, "dosomik") == 0)
-            fprintf(yyout, "%.2f\n", $2.decimal_value);
-        else
-            fprintf(yyout, "%d\n", $2.value);
+        if (!in_conditional || (in_conditional && if_condition_met)) {
+            if(strcmp($2.type, "dosomik") == 0)
+                fprintf(yyout, "%.2f\n", $2.decimal_value);
+            else
+                fprintf(yyout, "%d\n", $2.value);
+        }
     }
     | PRINT STRING_LITERAL {
-        char *str = strdup($2);
-        str[strlen(str)-1] = '\0';
-        fprintf(yyout, "%s\n", str+1);
-        free(str);
+        if (!in_conditional || (in_conditional && if_condition_met)) {
+            char *str = strdup($2);
+            str[strlen(str)-1] = '\0';
+            fprintf(yyout, "%s\n", str+1);
+            free(str);
+        }
     }
     | PRINT IDENTIFIER {
-        for(int i = 0; i < sym_count; i++) {
-            if(strcmp(symbols[i].name, $2) == 0) {
-                if(strcmp(symbols[i].type, "sobdo") == 0)
-                    fprintf(yyout, "%s\n", symbols[i].string_value);
-                else if(strcmp(symbols[i].type, "dosomik") == 0)
-                    fprintf(yyout, "%.2f\n", symbols[i].decimal_value);
-                else
-                    fprintf(yyout, "%d\n", symbols[i].value);
-                break;
+        if (!in_conditional || (in_conditional && if_condition_met)) {
+            for(int i = 0; i < sym_count; i++) {
+                if(strcmp(symbols[i].name, $2) == 0) {
+                    if(strcmp(symbols[i].type, "sobdo") == 0)
+                        fprintf(yyout, "%s\n", symbols[i].string_value);
+                    else if(strcmp(symbols[i].type, "dosomik") == 0)
+                        fprintf(yyout, "%.2f\n", symbols[i].decimal_value);
+                    else
+                        fprintf(yyout, "%d\n", symbols[i].value);
+                    break;
+                }
             }
         }
     }
@@ -234,26 +264,133 @@ input_statement:
     ;
 
 if_statement:
-    IF LEFT_PAREN expression RIGHT_PAREN LEFT_BRACE statements RIGHT_BRACE %prec LOWER_THAN_ELSE
-    | IF LEFT_PAREN expression RIGHT_PAREN LEFT_BRACE statements RIGHT_BRACE ELSE LEFT_BRACE statements RIGHT_BRACE
-    | IF LEFT_PAREN expression RIGHT_PAREN LEFT_BRACE statements RIGHT_BRACE ELSE_IF LEFT_PAREN expression RIGHT_PAREN LEFT_BRACE statements RIGHT_BRACE opt_else
+    simple_if %prec LOWER_THAN_ELSE
+    | simple_if ELSE LEFT_BRACE {
+        if (!previous_condition_met) {
+            if_condition_met = 1;
+            in_conditional = 1;
+        } else {
+            in_conditional = 0;
+            if_condition_met = 0;
+        }
+    } statements RIGHT_BRACE {
+        in_conditional = 0;
+        if_condition_met = 0;
+        previous_condition_met = 0;
+    }
+    | simple_if else_if_list
     ;
 
-opt_else:
-    /* empty */ %prec LOWER_THAN_ELSE
-    | ELSE LEFT_BRACE statements RIGHT_BRACE
+simple_if:
+    IF LEFT_PAREN expression RIGHT_PAREN LEFT_BRACE {
+        previous_condition_met = 0;
+        if_condition_met = ($3.value != 0);
+        in_conditional = 1;
+        if (if_condition_met) {
+            previous_condition_met = 1;
+        }
+    } statements RIGHT_BRACE {
+        in_conditional = 0;
+    }
+    ;
+
+else_if_list:
+    else_if_clause
+    | else_if_list else_if_clause
+    ;
+
+else_if_clause:
+    ELSE_IF LEFT_PAREN expression RIGHT_PAREN LEFT_BRACE {
+        if (!previous_condition_met) {
+            if_condition_met = ($3.value != 0);
+            in_conditional = 1;
+            if (if_condition_met) {
+                previous_condition_met = 1;
+            }
+        } else {
+            in_conditional = 0;
+            if_condition_met = 0;
+        }
+    } statements RIGHT_BRACE {
+        in_conditional = 0;
+    }
+    | ELSE LEFT_BRACE {
+        if (!previous_condition_met) {
+            if_condition_met = 1;
+            in_conditional = 1;
+            previous_condition_met = 1;
+        } else {
+            in_conditional = 0;
+            if_condition_met = 0;
+        }
+    } statements RIGHT_BRACE {
+        in_conditional = 0;
+        if_condition_met = 0;
+        previous_condition_met = 0;
+    }
     ;
 
 while_statement:
-    WHILE LEFT_PAREN expression RIGHT_PAREN LEFT_BRACE statements RIGHT_BRACE
+    WHILE LEFT_PAREN IDENTIFIER GREATER NUMBER RIGHT_PAREN LEFT_BRACE {
+        in_loop = 1;
+        in_conditional = 1;
+        char *var_name = $3;
+        int val = get_symbol_value(var_name);
+        while (val > $5 && !should_break) {
+            fprintf(yyout, "%d\n", val);
+            val--;
+            set_symbol(var_name, val, "purno");
+        }
+    } statements RIGHT_BRACE {
+        in_loop = 0;
+        in_conditional = 0;
+    }
     ;
 
 for_statement:
-    FOR LEFT_PAREN expression_statement SEMICOLON expression SEMICOLON expression_statement RIGHT_PAREN LEFT_BRACE statements RIGHT_BRACE
+    FOR LEFT_PAREN IDENTIFIER ASSIGN NUMBER SEMICOLON 
+        IDENTIFIER LESS_EQUAL NUMBER SEMICOLON 
+        IDENTIFIER INCREMENT RIGHT_PAREN LEFT_BRACE {
+        in_loop = 1;
+        in_conditional = 1;
+        char *var_name = $3;
+        int start_val = $5;
+        int end_val = $9;
+        
+        set_symbol(var_name, start_val, "purno");
+        for (int i = start_val; i <= end_val && !should_break; i++) {
+            fprintf(yyout, "%d\n", i);
+            set_symbol(var_name, i + 1, "purno");
+        }
+    } statements RIGHT_BRACE {
+        in_loop = 0;
+        in_conditional = 0;
+    }
+    ;
+
+increment_statement:
+    IDENTIFIER INCREMENT {
+        int val = get_symbol_value($1);
+        set_symbol($1, val + 1, "purno");
+        $$.value = val + 1;
+        $$.type = "purno";
+    }
+    | IDENTIFIER DECREMENT {
+        int val = get_symbol_value($1);
+        set_symbol($1, val - 1, "purno");
+        $$.value = val - 1;
+        $$.type = "purno";
+    }
     ;
 
 switch_statement:
-    SWITCH LEFT_PAREN IDENTIFIER RIGHT_PAREN LEFT_BRACE case_list RIGHT_BRACE
+    SWITCH LEFT_PAREN IDENTIFIER RIGHT_PAREN LEFT_BRACE {
+        switch_value = get_symbol_value($3);
+        case_matched = 0;
+        in_conditional = 1;
+    } case_list RIGHT_BRACE {
+        in_conditional = 0;
+    }
     ;
 
 case_list:
@@ -263,12 +400,37 @@ case_list:
     ;
 
 case_statement:
-    CASE NUMBER COLON statements
-    | DEFAULT COLON statements
+    CASE NUMBER COLON {
+        current_case_matches = ($2 == switch_value && !case_matched);
+        if (current_case_matches) {
+            case_matched = 1;
+            if_condition_met = 1;
+        }
+    } statements {
+        if (current_case_matches) {
+            if_condition_met = 0;
+        }
+        current_case_matches = 0;
+    }
+    | DEFAULT COLON {
+        current_case_matches = !case_matched;
+        if (current_case_matches) {
+            if_condition_met = 1;
+        }
+    } statements {
+        if (current_case_matches) {
+            if_condition_met = 0;
+        }
+        current_case_matches = 0;
+    }
     ;
 
 break_statement:
-    BREAK
+    BREAK {
+        if (in_loop) {
+            should_break = 1;
+        }
+    }
     ;
 
 continue_statement:
@@ -289,9 +451,26 @@ expression:
         $$.decimal_value = $1;
         $$.type = "dosomik";
     }
+    | STRING_LITERAL {
+        $$.string_value = $1;
+        $$.type = "sobdo";
+    }
     | IDENTIFIER {
-        $$.value = get_symbol_value($1);
-        $$.type = "purno";
+        for(int i = 0; i < sym_count; i++) {
+            if(strcmp(symbols[i].name, $1) == 0) {
+                if(strcmp(symbols[i].type, "sobdo") == 0) {
+                    $$.string_value = symbols[i].string_value;
+                    $$.type = "sobdo";
+                } else if(strcmp(symbols[i].type, "dosomik") == 0) {
+                    $$.decimal_value = symbols[i].decimal_value;
+                    $$.type = "dosomik";
+                } else {
+                    $$.value = symbols[i].value;
+                    $$.type = "purno";
+                }
+                break;
+            }
+        }
     }
     | function_call {
         $$.value = $1.value;
@@ -357,11 +536,14 @@ expression:
         $$.value = $2.value;
         $$.type = $2.type;
     }
+    | increment_statement {
+        $$ = $1;
+    }
     ;
 
 function_call:
     IDENTIFIER LEFT_PAREN expression RIGHT_PAREN {
-        if(strcmp($1, "jogKoro") == 0) {
+        if(strcmp($1, "amarBiyog") == 0) {
             $$.value = $3.value;
             $$.type = strdup("purno");
         } else {
@@ -371,7 +553,14 @@ function_call:
         }
     }
     | IDENTIFIER LEFT_PAREN expression COMMA expression RIGHT_PAREN {
-        if(strcmp($1, "jogKoro") == 0) {
+        if(strcmp($1, "amarBiyog") == 0) {
+            if ($3.value > $5.value) {
+                $$.value = $3.value - $5.value;
+            } else {
+                $$.value = $5.value - $3.value;
+            }
+            $$.type = strdup("purno");
+        } else if(strcmp($1, "jogKoro") == 0) {
             $$.value = $3.value + $5.value;
             $$.type = strdup("purno");
         } else {
